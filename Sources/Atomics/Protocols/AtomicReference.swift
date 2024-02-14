@@ -146,8 +146,8 @@ extension UnsafeMutablePointer where Pointee == _AtomicReferenceStorage {
 
 @usableFromInline
 internal struct _AtomicReferenceStorage {
-  internal typealias Storage = DoubleWord.AtomicRepresentation
-  internal var _storage: Storage
+  internal typealias _Storage = DoubleWord.AtomicRepresentation
+  internal var _storage: _Storage
 
   @usableFromInline
   internal init(_ value: __owned AnyObject?) {
@@ -155,7 +155,7 @@ internal struct _AtomicReferenceStorage {
       _raw: Unmanaged.passRetained(value)?.toOpaque(),
       readers: 0,
       version: 0)
-    _storage = Storage(dword)
+    _storage = _Storage(dword)
   }
 
   @usableFromInline
@@ -170,7 +170,7 @@ internal struct _AtomicReferenceStorage {
     from pointer: UnsafeMutablePointer<Self>,
     hint: DoubleWord? = nil
   ) -> DoubleWord {
-    var old = hint ?? Storage.atomicLoad(at: pointer._extract, ordering: .relaxed)
+    var old = hint ?? _Storage.atomicLoad(at: pointer._extract, ordering: .relaxed)
     if old._raw == nil {
       atomicMemoryFence(ordering: .acquiring)
       return old
@@ -182,7 +182,7 @@ internal struct _AtomicReferenceStorage {
         readers: old._readers &+ 1,
         version: old._version)
       var done: Bool
-      (done, old) = Storage.atomicWeakCompareExchange(
+      (done, old) = _Storage.atomicWeakCompareExchange(
         expected: old,
         desired: new,
         at: pointer._extract,
@@ -208,7 +208,7 @@ internal struct _AtomicReferenceStorage {
     var done = false
     repeat {
       assert(current._readers >= 1)
-      (done, current) = Storage.atomicWeakCompareExchange(
+      (done, current) = _Storage.atomicWeakCompareExchange(
         expected: current,
         desired: DoubleWord(
           _raw: current._raw,
@@ -251,7 +251,7 @@ internal struct _AtomicReferenceStorage {
     let new = DoubleWord(_raw: new?.toOpaque(), readers: 0, version: old._version &+ 1)
     guard let ref = old._unmanaged else {
       // Try replacing the current nil value with the desired new value.
-      let (done, current) = Storage.atomicCompareExchange(
+      let (done, current) = _Storage.atomicCompareExchange(
         expected: old,
         desired: new,
         at: pointer._extract,
@@ -268,7 +268,7 @@ internal struct _AtomicReferenceStorage {
     ref.retain(by: delta)
     while true {
       // Try replacing the current value with the desired new value.
-      let (done, current) = Storage.atomicCompareExchange(
+      let (done, current) = _Storage.atomicCompareExchange(
         expected: old,
         desired: new,
         at: pointer._extract,
